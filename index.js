@@ -115,7 +115,7 @@ bot.once('spawn', () => {
                 let chestZ = parseInt(args[3]);
                 console.log(chestX + ' ' + chestY + ' ' + chestZ)
                 bot.pathfinder.setMovements(defaultMove);
-                bot.pathfinder.goto(new GoalNear(chestX, chestY, chestZ, 0), () => {
+                bot.pathfinder.goto(new GoalNear(chestX, chestY, chestZ, 0)).then(() => {
                     console.log('at chest');
 
                     let chest = bot.findBlock({
