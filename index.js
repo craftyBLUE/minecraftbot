@@ -20,8 +20,6 @@ function _round(num) {
 bot.loadPlugin(autoeat);
 bot.loadPlugin(armorManager);
 
-bot.loadPlugin(require('mineflayer-collectblock').plugin);
-
 inventoryViewer(bot);
 console.log('Bot inventory viewer started at: http://localhost:3000/');
 
@@ -32,7 +30,7 @@ bot.once('spawn', () => {
         priority: 'foodPoints',
         startAt: 18,
         bannedFood: []
-    }
+    };
 });
 
 bot.on("autoeat_started", () => {
@@ -42,24 +40,6 @@ bot.on("autoeat_started", () => {
 bot.on("autoeat_stopped", () => {
     bot.chat("Gotov has!");
 })
-
-async function collectGrass(block) {
-    // Find a nearby grass block
-    const grass = bot.findBlock({
-        matching: mcData.blocksByName[block].id,
-        maxDistance: 64
-    })
-
-    if (grass) {
-        // If we found one, collect it.
-        try {
-            await bot.collectBlock.collect(grass)
-            collectGrass() // Collect another grass block
-        } catch (err) {
-            console.log(err) // Handle errors, if any
-        }
-    }
-}
 
 bot.once('spawn', () => {
     bot.chat('Pozz');
@@ -94,8 +74,12 @@ bot.once('spawn', () => {
                 let goalZ = parseInt(args[3]);
                 if (!goalZ)
                     return;
+                if (!goalY)
+                    return;
+                if (!goalX)
+                    return;
                 bot.pathfinder.setMovements(defaultMove);
-                bot.pathfinder.setGoal(new GoalNear(goalX, goalY, goalZ, 1));
+                bot.pathfinder.setGoal(new GoalNear(goalX, goalY, goalZ, 0));
 
                 ////// 'goto'
                 break;
@@ -125,23 +109,29 @@ bot.once('spawn', () => {
                 break;
 
 
-            case 'get':
-                collectGrass(args[1]);
+            case 'chest':
+                let chestX = parseInt(args[1]);
+                let chestY = parseInt(args[2]);
+                let chestZ = parseInt(args[3]);
+                console.log(chestX + ' ' + chestY + ' ' + chestZ)
+                bot.pathfinder.setMovements(defaultMove);
+                bot.pathfinder.goto(new GoalNear(chestX, chestY, chestZ, 0), () => {
+                    console.log('at chest');
 
-                ////// 'get'
+                    let chest = bot.findBlock({
+                        matching: mcData.blocksByName.chest.id,
+                        maxDistance: 2
+                    });
+
+                    bot.openContainer(chest);
+
+                });
+
+
+
+
+                ////// 'chest'
                 break;
-
-            case 'blink': //možda zahtijeva premium acc
-                bot.settings.skinParts.showCape = !bot.settings.skinParts.showCape;
-                bot.settings.skinParts.showHat = !bot.settings.skinParts.showHat;
-                bot.settings.skinParts.showJacket = !bot.settings.skinParts.showJacket;
-                bot.settings.skinParts.showLeftPants = !bot.settings.skinParts.showLeftPants;
-                bot.settings.skinParts.showRightPants = !bot.settings.skinParts.showRightPants;
-                bot.settings.skinParts.showRightSleeve = !bot.settings.skinParts.showRightSleeve;
-                bot.settings.skinParts.showLeftSleeve = !bot.settings.skinParts.showLeftSleeve;
-                bot.settings.skinParts.showPants = !bot.settings.skinParts.showPants;
-                console.log(bot.settings.skinParts);
-                bot.settings.chat("" + bot.settings.skinParts);
 
 
         }
