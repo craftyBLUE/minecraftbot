@@ -1,12 +1,12 @@
-const mineflayer = require('mineflayer');
-const pathfinder = require('mineflayer-pathfinder').pathfinder;
-const Movements = require('mineflayer-pathfinder').Movements;
-const { GoalNear } = require('mineflayer-pathfinder').goals;
+const mineflayer = require("mineflayer");
+const pathfinder = require("mineflayer-pathfinder").pathfinder;
+const Movements = require("mineflayer-pathfinder").Movements;
+const { GoalNear } = require("mineflayer-pathfinder").goals;
 
 let botArgs = {
-    host: 'localhost',
+    host: "localhost",
     port: 25565,
-    version: '1.18.2'
+    version: "1.18.2"
 }
 
 function _round(num) {
@@ -17,21 +17,66 @@ function _round(num) {
 
 //chat and whisper
 function reply(bot, username, message) {
-    if (username) {
-        bot.whisper(username, message);
-    }
-    else {
-        bot.chat(message);
+    switch (bot.reply) {
+        case "whisperMaster":
+            bot.whisper(bot.master, message);
+            break;
+
+        case "whisper":
+            if (username) {
+                bot.whisper(username, message);
+            }
+            else {
+                bot.chat(message);
+            }
+            break;
+
+        case "chat":
+            bot.chat(message);
+            break;
+
+        default:
+            console.log(username);
+            console.log(message);
+            console.log("---");
     }
 }
 
-function command(bot, mcData, defaultMove, username, args) {
+function command(bot, defaultMove, username, args) {
+
+    /*console.log("---");
+    console.log(bot.username);
+    console.log(username);
+    console.log(args);
+    console.log("---");*/
+
+    if (bot.master) {
+        if (username != bot.master) {
+            //console.log(bot.username, ":", username, " is not ", bot.master);
+            return;
+        }
+    }
+
     const target = bot.players[username] ? bot.players[username].entity : null;
 
     switch (args[0]) {
-        case 'come':
+        case "master":
+            bot.master = args[1];
+            
+            break;
+        
+        case "order":
+            for (let i = 0; i < bot.slaves.length; i++) {
+                slaveArgs = [];
+                for (let i = 1; i < args.length; i++) slaveArgs.push(args[i]);
+                command(bot.slaves[i].bot, defaultMove, bot.username, slaveArgs);
+            }
+
+            break;
+
+        case "come":
             if (!target) {
-                reply(bot, username, 'I can\'t see you!');
+                reply(bot, username, "I can\'t see you!");
                 return;
             }
             const p = target.position;
@@ -41,7 +86,7 @@ function command(bot, mcData, defaultMove, username, args) {
 
             break;
 
-        case 'goto':
+        case "goto":
             let goalX = parseInt(args[1]);
             let goalY = parseInt(args[2]);
             let goalZ = parseInt(args[3]);
@@ -56,32 +101,32 @@ function command(bot, mcData, defaultMove, username, args) {
 
             break;
 
-        case 'stop':
+        case "stop":
             bot.pathfinder.stop();
 
             break;
 
-        case 'health':
+        case "health":
             reply(bot, username, `Health[${_round(bot.health)}], Food[${_round(bot.food)}], Saturation[${_round(bot.foodSaturation)}]`);
 
             break;
 
-        case 'pos':
-            reply(bot, username, Math.round(bot.entity.position.x) + ' ' + Math.round(bot.entity.position.y) + ' ' + Math.round(bot.entity.position.z));
+        case "pos":
+            reply(bot, username, Math.round(bot.entity.position.x) + " " + Math.round(bot.entity.position.y) + " " + Math.round(bot.entity.position.z));
 
             break;
         
-        case 'chest':
+        case "chest":
             let chestX = parseInt(args[1]);
             let chestY = parseInt(args[2]);
             let chestZ = parseInt(args[3]);
-            console.log(chestX + ' ' + chestY + ' ' + chestZ)
+            console.log(chestX + " " + chestY + " " + chestZ)
             bot.pathfinder.setMovements(defaultMove);
             bot.pathfinder.goto(new GoalNear(chestX, chestY, chestZ, 1)).then(() => {
-                console.log('at chest');
+                console.log("at chest");
 
                 let chest = bot.findBlock({
-                    matching: mcData.blocksByName.chest.id,
+                    matching: bot.mcData.blocksByName.chest.id,
                     maxDistance: 2
                 });
 
@@ -91,25 +136,50 @@ function command(bot, mcData, defaultMove, username, args) {
 
             break;
         
-            case 'echo':
-                message = "";
-                for (let i = 1; i < args.length; i++) {
-                    message += args[i] + " ";
-                }
-                reply(bot, username, message);
-                reply(bot, "", message);
+        case "echo":
+            message = "";
+            for (let i = 1; i < args.length; i++) {
+                message += args[i] + " ";
+            }
+            reply(bot, username, message);
 
-                break;
+            break;
+
+        case "reply":
+            if (args[1]) bot.reply = args[1];
+            break;
+        
+        case "slave":
+            switch (args[1]) {
+                case "add":
+
+                    bot.slaves.push(new MCBot(bot.username + "_slave_" + bot.slaves.length, bot.username));
+
+                    break;
+
+                case "remove":
+                    
+                    bot.slaves.pop(); //no work
+
+                    break;
+
+                default:
+                    for (let i = 0; i < bot.slaves.length; i++) {
+                        reply(bot, username, bot.slaves[i].bot.username);
+                    }
+            }
     }
 }
 
 class MCBot {
 
-    constructor(username) {
+    constructor(username, master) {
         this.username = username;
         this.host = botArgs["host"];
         this.port = botArgs["port"];
         this.version = botArgs["version"];
+
+        this.master = master;
 
         this.initBot();
     }
@@ -122,31 +192,74 @@ class MCBot {
             "version": this.version
         });
 
+        this.bot.master = this.master;
+        this.bot.reply = "console";
+
+        this.bot.slaves = [];
+        this.bot.numberOfSlaves = 0;
+
         this.initEvents();
     }
 
     initEvents() {
         this.bot.loadPlugin(pathfinder);
 
-        this.bot.once('spawn', () => {
-            this.bot.chat('I am ' + this.bot.username);
+        //options
+        this.bot.pathfinder.allowFreeMotion = 1;
 
-            const defaultMove = new Movements(this.bot);
-            this.mcData = require('minecraft-data')(this.bot.version);
+        this.bot.once("spawn", () => {
+            reply(this.bot, "", "I am " + this.bot.username);
 
-            this.bot.on('whisper', (username, message) => {
-                let args = message.split(' ');
+            const defaultMove = new Movements(this.bot); //doesn't work when made to be this.bot.defaultMove; todo: fix
+            this.bot.mcData = require("minecraft-data")(this.bot.version);
+
+            this.bot.on("whisper", (username, message) => {
+                let args = message.split(" ");
 
                 if (username === this.bot.username) return;
 
-                command(this.bot, this.mcData, defaultMove, username, args);
+                command(this.bot, defaultMove, username, args);
 
             });
+
+            this.bot.on("chat", (username, message) => {
+                let args = message.split(" ");
+
+                if (username === this.bot.username) return;
+
+                command(this.bot, defaultMove, username, args);
+
+            });
+        });
+
+        this.bot.on("goal_reached", () => {
+            reply(this.bot, "", "Goal reached");
+        });
+
+        this.bot.on("path_reset", (reason) => {
+            reply(this.bot, "", "path reset: " + reason);
+            /*switch (reason) {
+                case "stuck":
+                    this.bot.setControlState("forward", false);
+                    this.bot.setControlState("sprint", false);
+                    this.bot.setControlState("back", true);
+
+                    this.bot.waitForTicks(20);
+
+                    this.bot.setControlState("back", false);
+
+                default:
+                    break;
+            }*/
+        });
+
+        this.bot.on("path_stop", () => {
+            reply(this.bot, "", "Stopped!");
         });
     }
 }
 
 let bots = [];
-for (var i = 0; i < 3; i++) {
-    bots.push(new MCBot('Bot_'+ i));
+for (let i = 0; i < 1; i++) {
+    bots.push(new MCBot("Bot_"+ i, ""));
 }
