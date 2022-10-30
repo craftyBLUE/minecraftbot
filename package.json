@@ -1,11 +1,11 @@
 {
     "name": "minecraftbot",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "description": "",
-    "main": "index.js",
+    "main": "multi.js",
     "scripts": {
         "test": "echo \"Error: no test specified\" && exit 1",
-        "start": "node index.js"
+        "start": "node multi.js"
     },
     "keywords": [],
     "author": "",
@@ -14,7 +14,6 @@
         "mineflayer": "^4.5.1",
         "mineflayer-armor-manager": "^1.4.2",
         "mineflayer-auto-eat": "^2.3.3",
-        "mineflayer-pathfinder": "^2.4.0",
-        "mineflayer-web-inventory": "^1.8.3"
+        "mineflayer-pathfinder": "^2.4.0"
     }
 }
