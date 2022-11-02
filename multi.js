@@ -1,11 +1,13 @@
 const mineflayer = require("mineflayer");
 const pathfinder = require("mineflayer-pathfinder").pathfinder;
 const Movements = require("mineflayer-pathfinder").Movements;
-const { GoalNear } = require("mineflayer-pathfinder").goals;
+const {
+    GoalNear, GoalBlock, GoalFollow, GoalInvert
+} = require("mineflayer-pathfinder").goals;
 
 let botArgs = {
-    host: "localhost",
-    port: 25565,
+    host: "185.137.94.75",
+    port: 25568,
     version: "1.18.2"
 }
 
@@ -62,16 +64,10 @@ function command(bot, defaultMove, username, args) {
     switch (args[0]) {
         case "master":
             bot.master = args[1];
-            
-            break;
-        
-        case "order":
-            for (let i = 0; i < bot.slaves.length; i++) {
-                slaveArgs = [];
-                for (let i = 1; i < args.length; i++) slaveArgs.push(args[i]);
-                command(bot.slaves[i].bot, defaultMove, bot.username, slaveArgs);
-            }
 
+            reply(bot, username, "Transfering ownership...");
+            reply(bot, bot.master, "Hello my new master");
+            
             break;
 
         case "come":
@@ -83,6 +79,30 @@ function command(bot, defaultMove, username, args) {
 
             bot.pathfinder.setMovements(defaultMove);
             bot.pathfinder.setGoal(new GoalNear(p.x, p.y, p.z, 1));
+
+            break;
+        
+        case "spread":
+            if (!target) {
+                reply(bot, username, "I can\'t see you!");
+                return;
+            }
+            const ps = target.position;
+
+            if (!args[1]) return;
+
+            bot.pathfinder.setMovements(defaultMove);
+            bot.pathfinder.setGoal(new GoalInvert(new GoalNear(ps.x, ps.y, ps.z, args[1])));
+
+            break;
+        
+        case "follow":
+            if (!target) {
+                reply(bot, username, "I can\'t see you!");
+                return;
+            }
+            bot.pathfinder.setMovements(defaultMove);
+            bot.pathfinder.setGoal(new GoalFollow(target, 3), true);
 
             break;
 
@@ -120,10 +140,10 @@ function command(bot, defaultMove, username, args) {
             let chestX = parseInt(args[1]);
             let chestY = parseInt(args[2]);
             let chestZ = parseInt(args[3]);
-            console.log(chestX + " " + chestY + " " + chestZ)
+            reply(bot, username, chestX + " " + chestY + " " + chestZ)
             bot.pathfinder.setMovements(defaultMove);
             bot.pathfinder.goto(new GoalNear(chestX, chestY, chestZ, 1)).then(() => {
-                console.log("at chest");
+                reply(bot, username, "at chest");
 
                 let chest = bot.findBlock({
                     matching: bot.mcData.blocksByName.chest.id,
@@ -149,25 +169,17 @@ function command(bot, defaultMove, username, args) {
             if (args[1]) bot.reply = args[1];
             break;
         
-        case "slave":
-            switch (args[1]) {
-                case "add":
-
-                    bot.slaves.push(new MCBot(bot.username + "_slave_" + bot.slaves.length, bot.username));
-
-                    break;
-
-                case "remove":
-                    
-                    bot.slaves.pop(); //no work
-
-                    break;
-
-                default:
-                    for (let i = 0; i < bot.slaves.length; i++) {
-                        reply(bot, username, bot.slaves[i].bot.username);
-                    }
-            }
+        case "quit":
+            reply(bot, username, "Goodbye!");
+            bot.quit();
+            break;
+        
+        case "add":
+            let name = args[1];
+            if (!name) name = "Bot_" + bots.length;
+            bots.push(new MCBot(name, bot.master));
+            break;
+        
     }
 }
 
@@ -193,10 +205,7 @@ class MCBot {
         });
 
         this.bot.master = this.master;
-        this.bot.reply = "console";
-
-        this.bot.slaves = [];
-        this.bot.numberOfSlaves = 0;
+        this.bot.reply = "chat";
 
         this.initEvents();
     }
@@ -252,6 +261,11 @@ class MCBot {
                     break;
             }*/
         });
+
+        /*this.bot.on('path_update', (r) => {
+            const nodesPerTick = (r.visitedNodes * 50 / r.time).toFixed(2)
+            reply(this.bot, "", "I can get there in " + r.path.length + " moves. Computation took " + r.time.toFixed(2) + " ms ( " + r.visitedNodes + " nodes, " + nodesPerTick + " nodes/tick)")
+        });*/
 
         this.bot.on("path_stop", () => {
             reply(this.bot, "", "Stopped!");
